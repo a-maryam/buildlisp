@@ -1,3 +1,8 @@
+/* Took source file because of compilation issues
+ * I think the problem was actually errors in my makefile which I believe
+ * are fixed
+ * File: evaluation.c
+ */
 #include "mpc.h"
 
 #ifdef _WIN32
@@ -9,7 +14,7 @@ char* readline(char* prompt) {
   fgets(buffer, 2048, stdin);
   char* cpy = malloc(strlen(buffer)+1);
   strcpy(cpy, buffer);
-  cpy[strlen(cpy)-1] = '\0';
+  cpy[strlen(cpy)-1] = '\0'; // why? strcpy gives you a null term. doesn't it?
   return cpy;
 }
 
@@ -18,8 +23,37 @@ void add_history(char* unused) {}
 #else
 #include <editline/readline.h>
 #include <histedit.h>
-//#include <editline/history.h>
 #endif
+// returns zero if op is not in our set of ops
+long eval_op(long x, char* op, long y) {
+  if(strcmp(op, "+") == 0) return x+y;
+  if(strcmp(op, "-") == 0) return x-y;
+  if(strcmp(op, "*") == 0) return x*y;
+  if(strcmp(op, "/") == 0) return x/y;
+  return 0;
+}
+// Recursive function
+long eval(mpc_ast_t* t) {
+  
+  // tag contains number
+  if(strstr(t->tag, "number")) {
+    return atoi(t -> contents);
+  }
+
+  char * op = t -> children[1]-> contents; //whoa repeated arrow operators!
+  long x = eval(t -> children[2]);
+
+  // iterate through the rest of the children...
+  int i = 3;
+  
+  while(strstr(t->children[i]->tag, "expr")) {
+    x = eval_op(x, op, eval(t-> children[i]));
+    i++;
+  } // I need to think through this recursion
+  
+  return x;
+}
+  
 
 int main(int argc, char** argv) {
   
@@ -51,8 +85,12 @@ int main(int argc, char** argv) {
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Lispy, &r)) {
       /* On success print and delete the AST */
-      mpc_ast_print(r.output);
+      //  mpc_ast_print(r.output);
+      //mpc_ast_delete(r.output);
+      long result = eval(r.output);
+      printf("%li\n", result);
       mpc_ast_delete(r.output);
+      
     } else {
       /* Otherwise print and delete the Error */
       mpc_err_print(r.error);
