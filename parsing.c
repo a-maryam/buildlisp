@@ -9,6 +9,19 @@
 
 static char buffer[2048];
 
+// new lval struct decl.
+typedef struct {
+  int type; // type and err are booleans
+  long num; // naming these makes the program more coherent
+  int err;
+} lval;
+
+// enumeration of possible lval types
+enum {LVAL_NUM, LVAL_ERR };
+// enumeration of possible error types
+enum {LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM};
+
+
 char* readline(char* prompt) {
   fputs(prompt, stdout);
   fgets(buffer, 2048, stdin);
