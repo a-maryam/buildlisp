@@ -1,27 +1,11 @@
-/* Took source file because of compilation issues
- * I think the problem was actually errors in my makefile which I believe
- * are fixed
- * File: evaluation.c
+/* 
+ * File: parsing.c
  */
 #include "mpc.h"
 
 #ifdef _WIN32
 
 static char buffer[2048];
-
-// new lval struct decl.
-typedef struct {
-  int type; // type and err are booleans
-  long num; // naming these makes the program more coherent
-  int err;
-} lval;
-
-// enumeration of possible lval types
-enum {LVAL_NUM, LVAL_ERR };
-// enumeration of possible error types
-enum {LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM};
-
-
 char* readline(char* prompt) {
   fputs(prompt, stdout);
   fgets(buffer, 2048, stdin);
@@ -37,24 +21,82 @@ void add_history(char* unused) {}
 #include <editline/readline.h>
 #include <histedit.h>
 #endif
-// returns zero if op is not in our set of ops
-long eval_op(long x, char* op, long y) {
-  if(strcmp(op, "+") == 0) return x+y;
-  if(strcmp(op, "-") == 0) return x-y;
-  if(strcmp(op, "*") == 0) return x*y;
-  if(strcmp(op, "/") == 0) return x/y;
-  return 0;
+/* ERROR HANDLING */
+// new lisp value (lval) struct decl.
+// Lispy evaluation yields either a number or an error
+typedef struct {
+  int type; // type and err are booleans
+  long num; // naming these makes the program more coherent
+  int err;
+} lval;
+
+// enumeration of possible lval types
+enum {LVAL_NUM, LVAL_ERR };
+// enumeration of possible error types
+enum {LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM};
+
+lval lval_num(long x) {
+  lval v;
+  v.type = LVAL_NUM;
+  v.num = x;
+  return v;
+}
+
+lval lval_err(int x) {
+  lval v;
+  v.type = LVAL_ERR;
+  v.err = x;
+  return v;
+}
+// Printing lisp values
+void lval_print(lval v) {
+  switch(v.type) {
+  case LVAL_NUM: printf("%li", v.num); break;
+  case LVAL_ERR:
+    if(v.err == LERR_DIV_ZERO) {
+      printf("Error: Division by zero.");
+    }
+    if(v.err == LERR_BAD_OP) {
+      printf("Error: Invalid Operator.");
+    }
+    if(v.err == LERR_BAD_NUM) {
+      printf("Error: Invalid Number!");
+    }
+    break;
+  }
+}
+// print lisp value and then newline:
+void lval_println(lval v) {lval_print(v); putchar('\n');}
+
+lval eval_op(lval x, char* op, lval y) {
+  // return errors
+  if(x.type == LVAL_ERR) return x;
+  if(y.type == LVAL_ERR) return y;
+
+  // otherwise compute
+  if(strcmp(op, "+") == 0) return lval_num(x.num + y.num);
+  if(strcmp(op, "-") == 0) return lval_num(x.num - y.num);
+  if(strcmp(op, "*") == 0) return lval_num(x.num * y.num);
+  if(strcmp(op, "/") == 0) {
+    return y.num == 0 ?
+      lval_err(LERR_DIV_ZERO) :
+      lval_num(x.num / y.num);
+  }
+  return lval_err(LERR_BAD_OP);
 }
 // Recursive function
-long eval(mpc_ast_t* t) {
+lval eval(mpc_ast_t* t) {
   
   // tag contains number
   if(strstr(t->tag, "number")) {
-    return atoi(t -> contents);
+    // check for error
+    errno = 0;
+    long x = strtol(t->contents, NULL, 10);
+    return errno != ERANGE ? lval_num(x) : lval_err(LERR_BAD_NUM);
   }
 
   char * op = t -> children[1]-> contents; //whoa repeated arrow operators!
-  long x = eval(t -> children[2]);
+  lval x = eval(t -> children[2]);
 
   // iterate through the rest of the children...
   int i = 3;
@@ -100,8 +142,9 @@ int main(int argc, char** argv) {
       /* On success print and delete the AST */
       //  mpc_ast_print(r.output);
       //mpc_ast_delete(r.output);
-      long result = eval(r.output);
-      printf("%li\n", result);
+      lval result = eval(r.output);
+      //printf("%li\n", result);
+      lval_println(result);
       mpc_ast_delete(r.output);
       
     } else {
