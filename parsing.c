@@ -90,7 +90,7 @@ lval eval(mpc_ast_t* t) {
   // tag contains number
   if(strstr(t->tag, "number")) {
     // check for error
-    errno = 0;
+    errno = 0; // <errno.h> in included in mpc.h
     long x = strtol(t->contents, NULL, 10);
     return errno != ERANGE ? lval_num(x) : lval_err(LERR_BAD_NUM);
   }
